@@ -63,7 +63,7 @@ services:
       - elk
 
   app:
-    build: ./app
+    build: ./application
     container_name: flask-app
     ports:
       - "5005:5005"
