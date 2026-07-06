@@ -1,0 +1,77 @@
+version: "3.8"
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.4
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ports:
+      - "9200:9200"
+    networks:
+      - elk
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.4
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - elk
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.17.4
+    container_name: logstash
+    volumes:
+      - ./logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+      - ./logs:/logs
+    ports:
+      - "5044:5044"
+    depends_on:
+      - elasticsearch
+    networks:
+      - elk
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.17.4
+    container_name: filebeat
+    user: root
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./logs:/logs:ro
+    depends_on:
+      - elasticsearch
+      - logstash
+    networks:
+      - elk
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    ports:
+      - "8081:80"
+    volumes:
+      - ./logs:/var/log/nginx
+    networks:
+      - elk
+
+  app:
+    build: ./app
+    container_name: flask-app
+    ports:
+      - "5005:5005"
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - elk
+
+networks:
+  elk:
+    driver: bridge
